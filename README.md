@@ -13,3 +13,5 @@ This project requires the follow Python Packages.
     - scikit-learn
     - matplotlib
     - opencv-python
+    - seaborn
+    - scikit-image
