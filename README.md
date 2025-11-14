@@ -16,7 +16,7 @@
         - Initializes Sklearn pipelines (SVM, RF)
         - Trains models and plots accuracy over different training sizes up to 80/20 split. (sample size 1.00 correspondes to 80% train and 20% validation)
         - Calulates 95% Confidence Intervals for each training set size
-    3. dataAnalysis.ipynb is stand alone and can be executed at any time.
+    3. dataAnalysis.ipynb is stand alone and can be executed at any time after Kaggle dataset is downloaded.
 
 
 

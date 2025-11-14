@@ -12,8 +12,9 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
+from torchvision.transforms import v2
 
-if True:
+if False:
     kaggle.api.authenticate()
     path = 'Garbage_data'
     dataset = 'zlatan599/garbage-dataset-classification'
@@ -59,12 +60,26 @@ metadata_train_df, metadata_val_df = train_test_split(metadata_df,random_state=s
 labels = sorted(metadata_df['label'].unique())
 label_to_idx = {label: idx for idx, label in enumerate(labels)}
 
-transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((32, 32)),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465),
-                         (0.2470, 0.2435, 0.2616))
+#transform with data augmentation
+
+transform = v2.Compose([
+    # convert nparray to tensor
+    v2.ToImage(),
+    # convert tensor type to float
+    v2.ToDtype(torch.float32, scale=True),
+    # recrop random section of image to 32 x 32
+    v2.RandomResizedCrop(size=(32, 32), antialias=True),
+    # 0.5 random chance to distort image
+    v2.RandomPhotometricDistort(p=0.5),
+    # 0.5 random chance to flip on horizontal axis
+    v2.RandomHorizontalFlip(p=0.5),
+    # 0.5 random chance to flip on vertical axis
+    v2.RandomVerticalFlip(p=0.5),
+    # randomly permute color channels
+    v2.RandomChannelPermutation(),
+    # normalize tensor
+    v2.Normalize((0.4914, 0.4822, 0.4465),
+                 (0.2470, 0.2435, 0.2616))
 ])
 
 trainset = GarbageDataset(metadata_train_df, transform=transform)
@@ -85,7 +100,7 @@ class LeNet(nn.Module):
         self.drop1 = nn.Dropout(0.6)
         self.fc2 = nn.Linear(512, 256)
         self.drop2 = nn.Dropout(0.6)
-        self.fc3 = nn.Linear(256, 10)
+        self.fc3 = nn.Linear(256, 6)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
