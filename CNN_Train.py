@@ -266,7 +266,7 @@ for epoch in range(epochs):
     test_acc = 100 * correct / total
 
     print(
-        f"Epoch [{epoch + 1}/{75}] -> Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%"
+        f"Epoch [{epoch + 1}/{epochs}] -> Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%"
     )
 
     epoch_list.append(epoch + 1)
@@ -274,6 +274,11 @@ for epoch in range(epochs):
     test_loss_list.append(test_loss)
     train_acc_list.append(train_acc)
     test_acc_list.append(test_acc)
+
+
+# moved for now
+PATH = "Ax_model_states.pth"
+torch.save(Ax_model.state_dict(), PATH)
 
 # Plot Accuracy and Loss Graphs
 plt.figure(figsize=(12, 5))
@@ -299,8 +304,8 @@ plt.legend()
 plt.show()
 
 # save model
-PATH = "Ax_model_states.pth"
-torch.save(Ax_model.state_dict(), PATH)
+# PATH = "Ax_model_states.pth"
+# torch.save(Ax_model.state_dict(), PATH)
 
 # load model using:
 # loaded_model = AxNet()
