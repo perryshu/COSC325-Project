@@ -15,6 +15,14 @@ import torchvision.transforms as transforms
 import torch.nn.functional as F
 from torchvision.transforms import v2
 
+seed = 67
+
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 # Load Dataset Metadata
 metadata_path = "./Garbage_data/Garbage_Dataset_Classification/metadata.csv"
 metadata_df = pd.read_csv(metadata_path)
