@@ -14,13 +14,16 @@ import torchvision.transforms as transforms
 import torch.nn.functional as F
 from torchvision.transforms import v2
 
+
 # Load Dataset Metadata
-metadata_path = './Garbage_data/Garbage_Dataset_Classification/metadata.csv'
+metadata_path = "./Garbage_data/Garbage_Dataset_Classification/metadata.csv"
 metadata_df = pd.read_csv(metadata_path)
 
+
 def get_file_path(metadata):
-    image_folder = './Garbage_data/Garbage_Dataset_Classification/images/'
-    return os.path.join(image_folder, metadata['label'], metadata['filename'])
+    image_folder = "./Garbage_data/Garbage_Dataset_Classification/images/"
+    return os.path.join(image_folder, metadata["label"], metadata["filename"])
+
 
 class GarbageDataset(Dataset):
     def __init__(self, metadata_df, transform=None):
@@ -35,7 +38,7 @@ class GarbageDataset(Dataset):
         img_path = get_file_path(metadata)
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        label = metadata['label']
+        label = metadata["label"]
 
         if self.transform:
             image = self.transform(image)
@@ -43,24 +46,29 @@ class GarbageDataset(Dataset):
         label_idx = label_to_idx[label]
         return image, label_idx
 
+
 split_seed = 13
 
-metadata_train_df, metadata_val_df = train_test_split(metadata_df, random_state=split_seed, stratify=metadata_df['label'].values)
+metadata_train_df, metadata_val_df = train_test_split(
+    metadata_df, random_state=split_seed, stratify=metadata_df["label"].values
+)
 
-labels = sorted(metadata_df['label'].unique())
+labels = sorted(metadata_df["label"].unique())
 label_to_idx = {label: idx for idx, label in enumerate(labels)}
 
 # Data Augmentation & Preprocessing
-transform = v2.Compose([
-    v2.ToImage(),
-    v2.ToDtype(torch.float32, scale=True),
-    v2.RandomResizedCrop(size=(32, 32), antialias=True),
-    v2.RandomPhotometricDistort(p=0.5),
-    v2.RandomHorizontalFlip(p=0.5),
-    v2.RandomVerticalFlip(p=0.5),
-    v2.RandomChannelPermutation(),
-    v2.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616))
-])
+transform = v2.Compose(
+    [
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.RandomResizedCrop(size=(32, 32), antialias=True),
+        v2.RandomPhotometricDistort(p=0.5),
+        v2.RandomHorizontalFlip(p=0.5),
+        v2.RandomVerticalFlip(p=0.5),
+        v2.RandomChannelPermutation(),
+        v2.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)),
+    ]
+)
 
 trainset = GarbageDataset(metadata_train_df, transform=transform)
 testset = GarbageDataset(metadata_val_df, transform=transform)
@@ -68,7 +76,16 @@ testset = GarbageDataset(metadata_val_df, transform=transform)
 trainloader = torch.utils.data.DataLoader(dataset=trainset, batch_size=32, shuffle=True)
 testloader = torch.utils.data.DataLoader(dataset=testset, batch_size=32, shuffle=False)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# change device (for mac use mainly)
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+
+print(f"Using device: {device}")
+
 
 # Define LeNet Model
 class LeNet(nn.Module):
@@ -94,6 +111,7 @@ class LeNet(nn.Module):
         x = self.fc3(x)
         return x
 
+
 # Modify the CustomCNN Class as per the request to integrate with the ensemble model
 class CustomCNN(nn.Module):
     def __init__(self, num_classes=6):
@@ -106,20 +124,18 @@ class CustomCNN(nn.Module):
             nn.Conv2d(32, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),   # -> 16x16
-
+            nn.MaxPool2d(2, 2),  # -> 16x16
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),   # -> 8x8
-
+            nn.MaxPool2d(2, 2),  # -> 8x8
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2)    # -> 4x4
+            nn.MaxPool2d(2, 2),  # -> 4x4
         )
 
         self.classifier = nn.Sequential(
@@ -127,13 +143,14 @@ class CustomCNN(nn.Module):
             nn.Linear(128 * 4 * 4, 256),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, num_classes)
+            nn.Linear(256, num_classes),
         )
 
     def forward(self, x):
         x = self.features(x)
         x = self.classifier(x)
         return x
+
 
 # Define Ensemble Model to combine both LeNet and CustomCNN
 class EnsembleCNN(nn.Module):
@@ -148,6 +165,7 @@ class EnsembleCNN(nn.Module):
         ensemble_output = (output1 + output2) / 2  # Averaging logits
         return ensemble_output
 
+
 # Initialize both models
 lenet_model = LeNet().to(device)
 customcnn_model = CustomCNN(num_classes=6).to(device)
@@ -157,7 +175,7 @@ ensemble_model = EnsembleCNN(lenet_model, customcnn_model).to(device)
 
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss(label_smoothing=0.4)
-optimizer = optim.AdamW(ensemble_model.parameters(), lr=0.0001, weight_decay=.01)
+optimizer = optim.AdamW(ensemble_model.parameters(), lr=0.0001, weight_decay=0.01)
 
 # Training loop
 epochs = 30
@@ -201,7 +219,9 @@ for epoch in range(epochs):
     test_loss /= len(testloader)
     test_acc = 100 * correct / total
 
-    print(f"Epoch [{epoch + 1}/{30}] -> Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%")
+    print(
+        f"Epoch [{epoch + 1}/{30}] -> Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%"
+    )
 
     if (epoch + 1) % 5 == 0 or epoch == 30 - 1:
         epoch_list.append(epoch + 1)
@@ -215,20 +235,20 @@ plt.figure(figsize=(12, 5))
 
 # Accuracy Plot
 plt.subplot(1, 2, 1)
-plt.plot(epoch_list, train_acc_list, 'bo-', label='Train Accuracy')
-plt.plot(epoch_list, test_acc_list, 'ro-', label='Test Accuracy')
-plt.xlabel('Epochs')
-plt.ylabel('Accuracy (%)')
-plt.title('Train vs Test Accuracy')
+plt.plot(epoch_list, train_acc_list, "bo-", label="Train Accuracy")
+plt.plot(epoch_list, test_acc_list, "ro-", label="Test Accuracy")
+plt.xlabel("Epochs")
+plt.ylabel("Accuracy (%)")
+plt.title("Train vs Test Accuracy")
 plt.legend()
 
 # Loss Plot
 plt.subplot(1, 2, 2)
-plt.plot(epoch_list, train_loss_list, 'bo-', label='Train Loss')
-plt.plot(epoch_list, test_loss_list, 'ro-', label='Test Loss')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.title('Train vs Test Loss')
+plt.plot(epoch_list, train_loss_list, "bo-", label="Train Loss")
+plt.plot(epoch_list, test_loss_list, "ro-", label="Test Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Train vs Test Loss")
 plt.legend()
 
 plt.show()
