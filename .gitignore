@@ -3,4 +3,4 @@
 temp*
 .DS_store
 metrics*
-Ax*
+*.pth
