@@ -1,6 +1,6 @@
 import os
 
-# import kaggle
+import kaggle
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -73,7 +73,6 @@ transform = v2.Compose(
         v2.RandomPhotometricDistort(p=0.5),
         v2.RandomHorizontalFlip(p=0.5),
         v2.RandomVerticalFlip(p=0.5),
-        v2.RandomChannelPermutation(),
         v2.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)),
     ]
 )
@@ -135,7 +134,7 @@ class CustomCNN(nn.Module):
             nn.Flatten(),
             nn.Linear(128 * 32 * 32, 256),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.15),
             nn.Linear(256, num_classes),
         )
 
@@ -155,16 +154,20 @@ class AxNet(nn.Module):
             nn.BatchNorm2d(96),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),  # 63->31
+
             nn.Conv2d(96, 256, kernel_size=5, padding=2, stride=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),  # 31->15
+
             nn.Conv2d(256, 384, kernel_size=3, padding=1, stride=1),
             nn.BatchNorm2d(384),
             nn.ReLU(inplace=True),  # 15-> 15
+
             nn.Conv2d(384, 384, kernel_size=3, padding=1),
             nn.BatchNorm2d(384),
             nn.ReLU(inplace=True),  # 15-> 15
+
             nn.Conv2d(384, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
@@ -214,33 +217,49 @@ class EnsembleCNN(nn.Module):
 
 # Initialize both models
 customcnn_model = CustomCNN(num_classes=6).to(device)
-Ax_model = AxNet(num_classes=6, dropout_rate=0.3).to(device)
+Ax_model = AxNet(num_classes=6, dropout_rate=0.15).to(device)
 
 # Create the ensemble model
 ensemble_model = EnsembleCNN(Ax_model, customcnn_model).to(device)
 
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-optimizer = optim.AdamW(Ax_model.parameters(), lr=0.0001, weight_decay=0.001)
+optimizer = optim.AdamW(ensemble_model.parameters(), lr=0.0001, weight_decay=0.0001)
+epochs = 100
+
+# Calculate steps_per_epoch
+steps_per_epoch = len(trainloader)
+
+# Initialize the OneCycleLR scheduler
+scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    optimizer,
+    max_lr=0.001,
+    steps_per_epoch=steps_per_epoch,
+    epochs=epochs,
+    pct_start=0.3,
+    div_factor=10.0,
+    final_div_factor=25.0,
+)
+
 
 # Training loop
-epochs = 75
 train_acc_list, test_acc_list = [], []
 train_loss_list, test_loss_list = [], []
 epoch_list = []
 
 for epoch in range(epochs):
-    Ax_model.train()
+    ensemble_model.train()
     running_loss, correct, total = 0.0, 0, 0
 
     for images, labels in trainloader:
         images, labels = images.to(device), labels.to(device)
 
         optimizer.zero_grad()
-        outputs = Ax_model(images)
+        outputs = ensemble_model(images)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         running_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -251,12 +270,12 @@ for epoch in range(epochs):
     train_acc = 100 * correct / total
 
     # Evaluate model
-    Ax_model.eval()
+    ensemble_model.eval()
     test_loss, correct, total = 0.0, 0, 0
     with torch.no_grad():
         for images, labels in testloader:
             images, labels = images.to(device), labels.to(device)
-            outputs = Ax_model(images)
+            outputs = ensemble_model(images)
             loss = criterion(outputs, labels)
             test_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -277,8 +296,8 @@ for epoch in range(epochs):
 
 
 # moved for now
-PATH = "Ax_model_states.pth"
-torch.save(Ax_model.state_dict(), PATH)
+PATH = "Ensemble_model_states.pth"
+torch.save(ensemble_model.state_dict(), PATH)
 
 # Plot Accuracy and Loss Graphs
 plt.figure(figsize=(12, 5))
