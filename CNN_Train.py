@@ -152,40 +152,40 @@ class AxNet(nn.Module):
         self.features = nn.Sequential(
             nn.Conv2d(3, 96, kernel_size=11, stride=4, padding=2),
             nn.BatchNorm2d(96),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2),  # 63->31
             nn.Conv2d(96, 256, kernel_size=5, padding=2, stride=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2),  # 31->15
             nn.Conv2d(256, 384, kernel_size=3, padding=1, stride=1),
             nn.BatchNorm2d(384),
-            nn.ReLU(inplace=True),  # 15-> 15
+            nn.ReLU(),  # 15-> 15
             nn.Conv2d(384, 384, kernel_size=3, padding=1),
             nn.BatchNorm2d(384),
-            nn.ReLU(inplace=True),  # 15-> 15
+            nn.ReLU(),  # 15-> 15
             nn.Conv2d(384, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2),  # 15-> 7
         )
 
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(256 * 7 * 7, 1024),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(1024, 512),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(512, 256),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(256, 128),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(128, 64),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(64, num_classes),
         )
