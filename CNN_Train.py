@@ -1,5 +1,4 @@
 import os
-
 import kaggle
 import pandas as pd
 import numpy as np
@@ -14,7 +13,9 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 from torchvision.transforms import v2
+# Import statemets
 
+# Setting seet for randomizer 
 seed = 67
 
 np.random.seed(seed)
@@ -35,25 +36,35 @@ def get_file_path(metadata):
 
 class GarbageDataset(Dataset):
     def __init__(self, metadata_df, transform=None):
+        # Store metadata and optional image transformations
         self.metadata_df = metadata_df.reset_index(drop=True)
         self.transform = transform
 
     def __len__(self):
+        # Return total number of samples
         return len(self.metadata_df)
 
     def __getitem__(self, idx):
+        # Fetch row for the given index
         metadata = self.metadata_df.iloc[idx]
+
+        # Load and convert image from BGR (OpenCV) to RGB
         img_path = get_file_path(metadata)
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Get label string from metadata
         label = metadata["label"]
 
+        # Apply transforms if provided
         if self.transform:
             image = self.transform(image)
 
+        # Convert label to numerical index
         label_idx = label_to_idx[label]
-        return image, label_idx
 
+        # Return image tensor and label index
+        return image, label_idx
 
 split_seed = 13
 
@@ -103,46 +114,62 @@ else:
 
 print(f"Using device: {device}")
 
+# Define LeNet Model, ultimately not used
+class LeNet(nn.Module):
+    def __init__(self):
+        super(LeNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 32, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(32, 64, 5)
+        self.fc1 = nn.Linear(64 * 5 * 5, 512)
+        self.drop1 = nn.Dropout(0.6)
+        self.fc2 = nn.Linear(512, 256)
+        self.drop2 = nn.Dropout(0.6)
+        self.fc3 = nn.Linear(256, 6)
 
-# Modify the CustomCNN Class as per the request to integrate with the ensemble model
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = self.pool(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)
+        x = self.drop1(F.relu(self.fc1(x)))
+        x = self.drop2(F.relu(self.fc2(x)))
+        x = self.fc3(x)
+        return x
+
+# Define custom CNN
 class CustomCNN(nn.Module):
     def __init__(self, num_classes=6):
         super(CustomCNN, self).__init__()
 
+        # Convolutional feature extractor
         self.features = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # -> 128x128
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # -> 64x64
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # -> 32x32
+            nn.Conv2d(3, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+            nn.Conv2d(32, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+            nn.MaxPool2d(2),  # 128×128
+
+            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.Conv2d(64, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.MaxPool2d(2),  # 64×64
+
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+            nn.MaxPool2d(2),  # 32×32
         )
 
+        # Classifier head
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * 32 * 32, 256),
-            nn.ReLU(),
+            nn.Linear(128 * 32 * 32, 256), nn.ReLU(),
             nn.Dropout(0.15),
             nn.Linear(256, num_classes),
         )
 
     def forward(self, x):
+        # Forward pass
         x = self.features(x)
         x = self.classifier(x)
         return x
-
 
 class AxNet(nn.Module):
     def __init__(self, num_classes, dropout_rate=0):
@@ -196,8 +223,7 @@ class AxNet(nn.Module):
         x = self.classifier(x)
         return x
 
-
-# Define Ensemble Model to combine both LeNet and CustomCNN
+# Defining ensemble CNN to ensemble two models
 class EnsembleCNN(nn.Module):
     def __init__(self, model1, model2):
         super(EnsembleCNN, self).__init__()
@@ -205,7 +231,7 @@ class EnsembleCNN(nn.Module):
         self.model2 = model2
 
     def forward(self, x):
-        output1 = self.model1(x)
+        output1 = self.model1(x)                   # Getting logits of both models
         output2 = self.model2(x)
         ensemble_output = (output1 + output2) / 2  # Averaging logits
         return ensemble_output
