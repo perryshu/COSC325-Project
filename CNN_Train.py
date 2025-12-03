@@ -244,9 +244,16 @@ Ax_model = AxNet(num_classes=6, dropout_rate=0.15).to(device)
 # Create the ensemble model
 ensemble_model = EnsembleCNN(Ax_model, customcnn_model).to(device)
 
+
+############ Choose Model To Train ##########################
+model_to_train = ensemble_model
+########################################################
+
+
+
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-optimizer = optim.AdamW(ensemble_model.parameters(), lr=0.0001, weight_decay=0.0001)
+optimizer = optim.AdamW(model_to_train.parameters(), lr=0.0001, weight_decay=0.0001)
 epochs = 100
 
 # Calculate steps_per_epoch
@@ -263,21 +270,20 @@ scheduler = torch.optim.lr_scheduler.OneCycleLR(
     final_div_factor=25.0,
 )
 
-
 # Training loop
 train_acc_list, test_acc_list = [], []
 train_loss_list, test_loss_list = [], []
 epoch_list = []
 
 for epoch in range(epochs):
-    ensemble_model.train()
+    model_to_train.train()
     running_loss, correct, total = 0.0, 0, 0
 
     for images, labels in trainloader:
         images, labels = images.to(device), labels.to(device)
 
         optimizer.zero_grad()
-        outputs = ensemble_model(images)
+        outputs = model_to_train(images)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -292,12 +298,12 @@ for epoch in range(epochs):
     train_acc = 100 * correct / total
 
     # Evaluate model
-    ensemble_model.eval()
+    model_to_train.eval()
     test_loss, correct, total = 0.0, 0, 0
     with torch.no_grad():
         for images, labels in testloader:
             images, labels = images.to(device), labels.to(device)
-            outputs = ensemble_model(images)
+            outputs = model_to_train(images)
             loss = criterion(outputs, labels)
             test_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -319,7 +325,7 @@ for epoch in range(epochs):
 
 # moved for now
 PATH = "Ensemble_model_states.pth"
-torch.save(ensemble_model.state_dict(), PATH)
+torch.save(model_to_train.state_dict(), PATH)
 
 # Plot Accuracy and Loss Graphs
 plt.figure(figsize=(12, 5))
